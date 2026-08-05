@@ -1,6 +1,6 @@
-# Solidity Best Practices (Cursor Skill)
+# Solidity Best Practices Skill
 
-Handbook + Cursor agent skill for writing Solidity that you'd actually want to maintain six months from now.
+Handbook + AI skill for writing Solidity that you'd actually want to maintain six months from now.
 
 This is **not** an audit checklist. If you need reentrancy trees and oracle manipulation playbooks, use your security skill. This repo is about the boring stuff that saves you later: naming, layout, invariants, tests, reviews, deploys.
 
@@ -27,8 +27,8 @@ Solidity-Smart-Contract-Best-Practices-Skill/   ← GitHub repo (this folder)
 | Layer | Name | Purpose |
 |-------|------|---------|
 | **GitHub repo** | `Solidity-Smart-Contract-Best-Practices-Skill` | Human-readable project name on disk / GitHub |
-| **Skill id** | `solidity-best-practices` | YAML `name:` in `SKILL.md` — how Cursor identifies the skill (lowercase, hyphens, max 64 chars) |
-| **Install folder** | `.cursor/skills/solidity-best-practices/` | Where files live when installed in a project or `~/.cursor/skills/` |
+| **Skill id** | `solidity-best-practices` | YAML `name:` in `SKILL.md` — how the agent identifies the skill (lowercase, hyphens, max 64 chars) |
+| **Install folder** | `solidity-best-practices/` | Inside your tool's skills directory — see below |
 
 The repo name does **not** need to match the skill id. Compare OpenZeppelin: repo `openzeppelin-contracts`, skill `solidity-style`. Trail of Bits: plugin `building-secure-contracts`, skill `secure-workflow-guide`. Short skill ids discover better.
 
@@ -38,23 +38,25 @@ Do **not** rename the skill to `solidity-smart-contract-best-practices-skill` �
 
 ## Install it
 
-**In a single project** (good for teams):
+Works as a skill in **Claude Code or Cursor** — copy the three files into that tool's skills folder.
+
+**Per-project** (teams):
 
 ```bash
+# Claude Code
+mkdir -p .claude/skills/solidity-best-practices
+cp SKILL.md reference.md examples.md .claude/skills/solidity-best-practices/
+
+# or Cursor
 mkdir -p .cursor/skills/solidity-best-practices
 cp SKILL.md reference.md examples.md .cursor/skills/solidity-best-practices/
 ```
 
-**Globally:**
+**Global** — same layout under `~/.claude/skills/` or `~/.cursor/skills/`.
 
-```bash
-mkdir -p ~/.cursor/skills/solidity-best-practices
-cp SKILL.md reference.md examples.md ~/.cursor/skills/solidity-best-practices/
-```
+The main file must be named `SKILL.md`. Keep `reference.md` and `examples.md` alongside it (standard skill layout).
 
-The file inside must be named `SKILL.md` (already is in this repo). Supporting files: `reference.md`, `examples.md` — same folder, one level deep (Cursor convention).
-
-**No Cursor?** Just read the markdown. Works fine as a team doc.
+**Not installing as a skill?** Just read the markdown. Works fine as a team doc.
 
 Trigger it explicitly if the agent drifts: *"follow the solidity best practices skill on this contract."*
 
