@@ -3,19 +3,19 @@ name: solidity-best-practices
 description: >-
   Guides writing, reviewing, and shipping high-quality Solidity smart contracts
   using established engineering standards. Covers invariant-driven design,
-  composable architecture, coding style, visibility, events, NatSpec, gas
-  discipline, dependency hygiene, upgradeability decisions, testing pipelines,
-  staged deployment, and AI-assisted development. Use when writing or reviewing
-  .sol files, designing contract architecture, setting up Foundry/Hardhat
-  projects, or when the user asks for Solidity best practices, style, or
-  production-quality contract development.
+  composable architecture, and a 70+ item detection checklist — every item
+  names the exact pattern to find in the code, so it can be applied
+  mechanically during code generation or a pre-push review, not just read as
+  prose. Use when writing or reviewing .sol files, designing contract
+  architecture, setting up Foundry/Hardhat projects, or when the user asks for
+  Solidity best practices, style, or production-quality contract development.
 ---
 
 # Solidity Best Practices
 
 Engineering guide for production-quality Solidity. Focus: **how to build well**, not vulnerability hunting. For security audits, use a dedicated security skill.
 
-**Synthesized from:** [Solidity docs](https://docs.soliditylang.org/) · [OpenZeppelin GUIDELINES](https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/GUIDELINES.md) · [SCSFG](https://scsfg.io/developers/) · [ethereum.org](https://ethereum.org/developers/docs/smart-contracts/security/) · [ConsenSys dev recommendations](https://consensysdiligence.github.io/smart-contract-best-practices/development-recommendations/) · [Trail of Bits invariant-driven development](https://blog.trailofbits.com/2025/02/12/the-call-for-invariant-driven-development/) · [Foundry Book](https://book.getfoundry.sh/)
+**Synthesized from:** [Solidity docs](https://docs.soliditylang.org/) · [OpenZeppelin GUIDELINES](https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/GUIDELINES.md) · [SCSFG](https://scsfg.io/developers/) · [ethereum.org](https://ethereum.org/developers/docs/smart-contracts/security/) · [ConsenSys dev recommendations](https://consensysdiligence.github.io/smart-contract-best-practices/development-recommendations/) · [Trail of Bits](https://github.com/crytic/building-secure-contracts) · [Secureum](https://secureum.substack.com/) · [Solcurity](https://github.com/transmissions11/solcurity) · [SWC Registry](https://swcregistry.io/) · [Foundry Book](https://book.getfoundry.sh/)
 
 ## When to Apply
 
@@ -29,13 +29,13 @@ Engineering guide for production-quality Solidity. Focus: **how to build well**,
 
 ## Core Philosophy
 
-1. **Simplicity over cleverness** — small, single-responsibility contracts; prefer audited libraries (OpenZeppelin, Solmate, PRBMath) over custom primitives ([SCSFG defensive programming](https://scsfg.io/developers/defensive-programming/)).
-2. **Invariants drive everything** — identify properties that must always hold *before* writing code; embed them in design, tests, docs, and monitoring ([Trail of Bits](https://blog.trailofbits.com/2025/02/12/the-call-for-invariant-driven-development/)).
+1. **Simplicity over cleverness** — small, single-responsibility contracts; prefer audited libraries (OpenZeppelin, Solmate, PRBMath) over custom primitives.
+2. **Invariants drive everything** — identify properties that must always hold *before* writing code; embed them in design, tests, docs, and monitoring.
 3. **Explicit over implicit** — visibility, access control, rounding direction, and trust assumptions visible in code and NatSpec.
-4. **Least privilege at every layer** — contract, function, role, and data access minimized ([SCSFG PoLP](https://scsfg.io/developers/defensive-programming/)).
-5. **Composable, localized state** — modular design with encapsulated state; avoid fancy data-separation patterns (Diamond, Eternal Storage) unless indispensable ([SCSFG system design](https://scsfg.io/developers/system-design/)).
+4. **Least privilege at every layer** — contract, function, role, and data access minimized.
+5. **Composable, localized state** — modular design with encapsulated state; avoid fancy data-separation patterns (Diamond, Eternal Storage) unless indispensable.
 6. **Observable state changes** — private state, controlled setters, indexed events after every mutation.
-7. **Test what you specify** — unit → integration → E2E → fuzz → invariant; structure tests like production code ([SCSFG testing](https://scsfg.io/developers/testing/)).
+7. **Test what you specify** — unit → integration → fuzz → invariant; structure tests like production code.
 
 Per [Solidity Security Considerations](https://docs.soliditylang.org/en/latest/security-considerations.html): keep contracts small and modular, use CEI, include fail-safe modes, and always seek peer review.
 
@@ -82,17 +82,17 @@ INVARIANT: totalAssets >= totalLiabilities
 
 ## Phase 1 — Architecture & Design
 
-Complete before implementation ([SCSFG system design](https://scsfg.io/developers/system-design/)):
+Complete before implementation:
 
 | Step | Practice |
 |------|----------|
 | Spec | State transitions, invariants, events, trust assumptions |
 | Composability | Break into modules by separation of concerns; each module autonomous with minimal deps |
 | On-chain scope | Keep on-chain only what must be trustless; document off-chain attack surface |
-| Dependencies | Registry of every external contract/token/oracle; **pin exact versions** ([SCSFG dependencies](https://scsfg.io/developers/dependencies/)) |
+| Dependencies | Registry of every external contract/token/oracle; **pin exact versions** |
 | Privilege map | Every privileged function listed; OZ `AccessControl` over bare `onlyOwner` |
 | Admin ops | Multisig + timelock + purposeful delays on critical changes |
-| Upgrade decision | Default **immutable**; upgrade only when maintenance need outweighs trust cost ([SCSFG upgradeability](https://scsfg.io/developers/upgradeability/)) |
+| Upgrade decision | Default **immutable**; upgrade only when maintenance need outweighs trust cost |
 | Emergency | Pause, rate limits, speed bumps for irreversible actions |
 | Diagrams | Architecture + sequence diagrams; auto-generate inheritance (Slither/Surya) + manual overlays |
 
@@ -109,129 +109,117 @@ Avoid Diamond (EIP-2535) unless no alternative — OZ deliberately excludes it. 
 
 ---
 
-## Phase 2 — Coding Standards
+## The Checklist — Code Review & Generation
 
-### File header
+**How to use this:** every item names the exact pattern to look for in the `.sol` code being written or reviewed — no external context needed. Items marked **Trigger / Flag** don't check whether a test already exists (that would require reading test files); instead they tell you when the code you're looking at warrants recommending a specific test, and give you the message to surface. Run this list top to bottom on every diff.
 
-```solidity
-// SPDX-License-Identifier: MIT
-pragma solidity 0.8.28;  // exact pin — never a floating range
-```
+### Visibility & Encapsulation
 
-Pin the latest **patched** compiler for your minor version. CI must compile with the same pin.
+1. Prefix `private`/`internal` members with `_`. **Detect:** a `private`/`internal` variable or function whose name doesn't start with `_`.
+2. Default to minimal visibility (`private` > `internal` > `external` > `public`). **Detect:** a `public` function with no internal call site — should be `external`.
+3. State variables: always `private`/`internal`; add a `view` getter only if needed. **Detect:** any state variable declared `public` or with no visibility keyword.
+4. Store dependencies as their interface type (`IERC20`), not `address`. **Detect:** a state variable typed `address` that gets wrapped in an interface cast at each use site.
+5. Named imports only. **Detect:** `import "X.sol";` without `{...} from`.
+6. Interfaces get their own file, prefixed `I`. **Detect:** an `interface` declaration not named `I...`.
+7. Mark functions `virtual` by default in library/base contracts, except trivial alias functions. **Detect:** a base/abstract contract function lacking `virtual` that isn't a one-line delegate.
+8. Mark `override` explicitly on every overriding function. **Detect:** a function signature matching a parent's without the `override` keyword.
 
-### Visibility & naming ([Solidity Style Guide](https://docs.soliditylang.org/en/latest/style-guide.html), [OZ GUIDELINES](https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/GUIDELINES.md))
+### State, Storage & Data Structures
 
-| Rule | Practice |
-|------|----------|
-| Lowest visibility | `private` > `internal` > `external` > `public` |
-| State variables | `private`/`internal` only; explicit getters when needed |
-| Prefix | `_` on private/internal (`_balances`, `_calculateFee`) |
-| `external` vs `public` | `external` when not called internally (cheaper calldata) |
-| Access control | Every mutating function: modifier **or** comment why intentionally open |
-| Concrete types | Store `IERC20` not `address`; cast only when truly needed ([SCSFG](https://scsfg.io/developers/defensive-programming/)) |
+9. Use `mapping` for key-based lookup; `array` only for iteration. **Detect:** an array searched via a linear loop comparing to a key.
+10. Bound or cap any collection a user can grow. **Detect:** a `push()` into a storage array reachable from an external function, with no cap, later iterated in a loop.
+11. Pack struct fields to fit 32-byte slots. **Detect:** adjacent struct fields whose combined width doesn't fill a 256-bit slot when it could.
+12. Anything fixed after the constructor: `immutable`/`constant`. In upgradeable contracts `immutable` is still safe — it lives in bytecode, not storage — but only for a value identical across every proxy sharing that implementation; mark it with `@custom:oz-upgrades-unsafe-allow state-variable-immutable`. **Detect:** a state variable only ever assigned in the constructor, not declared `immutable`.
+13. Nothing on-chain is private. **Detect:** a variable/comment naming "secret," "password," "apiKey," or "privateKey" stored in contract state.
+14. `delete` doesn't clear nested mappings. **Detect:** `delete` applied to an array/struct element whose type contains a `mapping` field.
+15. Downcasting integers truncates silently — use `SafeCast`. **Detect:** an explicit cast to a smaller int/uint type not wrapped in `SafeCast`.
+16. Never compare balance with `==` for accounting. **Detect:** `== address(this).balance` or `balance == amount` in a conditional.
+17. Never hardcode chain-specific addresses (tokens, oracles) in contract code. **Detect:** a literal `address(0x...)` for a known external contract, instead of a constructor/config parameter.
 
-### Contract layout
+### Access Control & Privilege
 
-```
-Pragma → Imports → Errors → Interfaces → Libraries → Contracts
-  → Types → State → Events → Modifiers → Constructor
-  → Receive/Fallback → External → Public → Internal → Private
-```
+18. Every state-mutating function needs an access modifier or an explicit "intentionally open" comment. **Detect:** a function that writes storage, has no modifier, and no such comment.
+19. If a user-triggered function mutates data outside that user's own record, require an explicit access check. **Detect:** a function keyed on `msg.sender` that also writes a variable not indexed by `msg.sender`, with no role/owner check.
+20. `AccessControl` for multi-role systems; `Ownable2Step` is enough for single-admin contracts. **Detect:** 3+ distinct privilege levels implemented via separate boolean mappings instead of `AccessControl`.
+21. Two-step ownership/role transfer, never one-shot. **Detect:** `owner = newOwner` assigned directly in one call rather than a propose/accept pair.
+22. Timelock irreversible or high-impact admin changes (fees, oracle address, upgrade target). **Detect:** a critical-parameter setter that takes effect in the same call, with no `pendingX`/`readyAt` delay.
 
-- One function, one responsibility; split at ~40 lines
-- Interface per ERC behavior, own file, `I` prefix
-- Named imports only; no wildcards ([OZ style](https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/.claude/skills/solidity-style/SKILL.md))
+### Checks-Effects-Interactions & Money
 
-### Defensive programming ([SCSFG](https://scsfg.io/developers/defensive-programming/))
+23. CEI ordering: checks → effects → interactions. **Detect:** an external call (`.call`, `.transfer`, external interface invocation) appearing before a storage write or event in the same function.
+24. Reentrancy guard on every externally-callable function touching external calls + shared state. **Detect:** a function containing an external call, without `nonReentrant` (or equivalent), that isn't read-only.
+25. Read-only reentrancy risk. **Detect:** a `view` function returning a ratio/price derived from state that another function updates non-atomically (e.g. deposit/withdraw pairs) — flag for manual review.
+26. Don't accept ETH unless ETH handling is core to the contract. **Detect:** a `receive()`/payable `fallback()` present while ETH isn't used anywhere else in the contract.
+27. Never use `address(this).balance` as internal accounting. **Detect:** `address(this).balance` used in a state-changing calculation, not just a diagnostic view.
+28. Avoid `.transfer()`/`.send()`; use `.call{value: x}("")`. **Detect:** literal `.transfer(` or `.send(` on an address.
+29. Prefer pull-payments over push loops. **Detect:** a loop sending ETH/tokens to multiple addresses within one external function.
+30. Always check return values of calls that return one. **Detect:** an unchecked `.call(...)` result, or an ERC20 `transfer`/`transferFrom` return value ignored and not wrapped in `SafeERC20`.
+31. Handle fee-on-transfer/rebasing tokens via balance delta, not the trusted parameter. **Detect:** a deposit-style function that credits the caller with the `amount` parameter directly instead of `balanceAfter - balanceBefore`.
+32. Never allow `delegatecall` to a user-suppliable address. **Detect:** `.delegatecall(` where the target isn't hardcoded or allowlisted.
+33. Cap/rate-limit gas forwarded to unbounded external calls inside loops. **Detect:** a loop making an external call per iteration with no gas stipend or iteration cap.
+34. Add slippage + deadline params to price/state-dependent functions. **Detect:** a swap/trade-style function missing a `deadline` and/or `minOut`-style parameter.
+35. Use `SafeERC20.forceApprove` for tokens requiring zero-first approval (USDT-style). **Detect:** raw `.approve(` call on an arbitrary `IERC20`.
+36. ERC-4626/share-based vaults need a first-depositor inflation guard. **Detect:** an `ERC4626`/share-based vault constructor with no dead-shares mint or virtual-shares offset — the standard first finding on any vault review ([EIP-4626](https://eips.ethereum.org/EIPS/eip-4626)).
 
-- Validate at the **earliest point** — including `internal` functions, not just public entry points ("hard shell, weak core" anti-pattern)
-- Check state before acting (`whenNotPaused`, `whenUnlocked`)
-- Proactive checks in libraries and internal helpers
+### Errors, Events & Assertions
 
-### Types, storage & math
+37. Every state-changing function — including admin/privilege changes — emits an event. **Detect:** a function that writes storage with no corresponding `emit`.
+38. Custom errors over `require(cond, "string")`. **Detect:** `require(` with a string-literal second argument.
+39. Factor a repeated check into a modifier. **Detect:** the same revert condition duplicated verbatim in 2+ functions.
+40. Validate inside `internal`/`private` helpers too. **Detect:** an `internal` state-changing function with no precondition checks, called from more than one external entry point.
+41. Reserve `assert()` for impossible conditions. **Detect:** `assert(` guarding a condition derived from a function parameter or external input.
 
-- `mapping` over `array` for key lookups; bound any required arrays
-- No `uint8`/`uint128` outside structs without packing justification
-- Pack struct fields into 32-byte slots
-- `immutable` / `constant` instead of storage for fixed values
-- Multiply before divide; document rounding direction in `@dev`
-- `unchecked` blocks need proof comments
+### Inheritance & Upgradeability
 
-### Gas discipline
+42. Pausable — and deliberately, possibly upgradeable — for non-trivial/high-value contracts. **Detect:** a contract handling transfers of value with no `Pausable`/circuit-breaker.
+43. Storage layout is append-only across upgrades. **Detect (compare old vs. new version):** an existing state variable's slot position or type changed.
+44. Never add a new base contract with its own state during an upgrade. **Detect (compare old vs. new version):** a new parent contract declaring state variables added in a version bump.
+45. Keep inheritance shallow. When 2+ parents implement the same function, `override(B, C)` is required — but that list's order doesn't control resolution; the contract's own inheritance declaration order does (C3 linearization), and `super.foo()` walks the full linearized chain, not just the nearest parent. **Detect:** a function implemented/overridden by 2+ parents in the same contract's inheritance list.
+46. `_disableInitializers()` in the implementation constructor. **Detect:** an `Initializable` contract's constructor missing this call.
+47. `__gap` arrays in every upgradeable base contract. **Detect:** an upgradeable base contract with state and no trailing `uint256[N] private __gap;`.
+48. UUPS bricking risk: verify `_authorizeUpgrade` can't be accidentally removed. **Detect:** `_authorizeUpgrade` gated by a role with no recovery path if that role is lost.
 
-- Custom errors over string reverts ([EIP-6093](https://eips.ethereum.org/EIPS/eip-6093))
-- `calldata` for read-only dynamic external params
-- Cache storage reads used more than once
-- `ALL_CAPS` named constants — no magic numbers
-- Cheapest revert condition first (short-circuit)
-- Assembly: always `assembly ("memory-safe")` with inline comments
+### Oracles & External Data
 
-### ETH & payments ([Solidity Common Patterns](https://docs.soliditylang.org/en/latest/common-patterns.html))
+49. Never use a DEX spot price as an oracle. **Detect:** a price calculation reading `getReserves()`/`slot0` directly, with no TWAP wrapper.
+50. Check oracle staleness on every read. **Detect:** a Chainlink `latestRoundData()` call whose `updatedAt` return value is discarded.
+51. Sanity-bound oracle values before use. **Detect:** an oracle-returned price used directly with no min/max bounds check.
+52. Fallback/pause path for a stale or unavailable oracle. **Detect:** a staleness check present with no corresponding revert/pause branch.
 
-- No `receive()`/`fallback()` unless ETH is core logic
-- Track internal balances — never `address(this).balance` as accounting
-- **Pull-over-push**: `mapping(address => uint256) pending` + `claim()`
-- `call{value: x}("")` with return check
+### Compiler, Types, Math & Signatures
 
-### Time & delays
+53. Pin an exact compiler version. **Detect:** `pragma solidity` using `^`, `~`, or a range instead of an exact version.
+54. `unchecked` blocks need a proof comment. **Detect:** an `unchecked { ... }` block with no preceding comment explaining why overflow/underflow is impossible.
+55. Multiply before you divide; document rounding. **Detect:** division applied before multiplication in the same value chain.
+56. Never use `tx.origin` for authorization. **Detect:** literal `tx.origin` in any conditional ([SWC-115](http://swcregistry.io/docs/SWC-115/)).
+57. Check `ecrecover` isn't returning `address(0)`. **Detect:** `ecrecover(` result used without a zero-address check and not using OZ `ECDSA.recover`.
+58. Use OZ `ECDSA` + nonce/chainid (EIP-712) for signatures. **Detect:** raw `ecrecover` on a custom hash with no nonce or `block.chainid` bound into the signed data.
+59. Never use `blockhash`/`block.timestamp`/`block.difficulty` as randomness. **Detect:** any of these combined with `%` to produce a "random" value ([SWC-120](http://swcregistry.io/docs/SWC-120/)).
 
-- Second-level `block.timestamp` tolerance OK; exact-second logic is not
-- **Purposeful delays** (speed bumps) on admin actions — give users time to react ([SCSFG](https://scsfg.io/developers/defensive-programming/))
+### Testing & Tooling — Trigger / Flag (recognize the code pattern, don't check for existing tests)
 
-### Events & errors
+60. **Trigger:** a revert condition exists (require/custom error). **Flag:** "Unit test needed — assert this reverts under [condition] and succeeds otherwise."
+61. **Trigger:** a parameter is used in arithmetic or as an array index. **Flag:** "Fuzz test needed — fuzz this parameter with `bound()` across its valid range and assert [invariant] holds."
+62. **Trigger:** the contract calls an external token/oracle interface. **Flag:** "Fork test needed — test against the real mainnet contract at a pinned block; mocks won't catch non-standard behavior."
+63. **Trigger:** the contract has a solvency/conservation-style property spanning multiple functions (vault, pool, ledger). **Flag:** "Invariant test needed — assert [property] holds via a Foundry handler across randomized call sequences."
+64. **Trigger:** a function sends ETH or tokens to an address parameter. **Flag:** "Unit test needed — test with a receiver that reverts, burns gas, or reenters on receipt."
+65. **Trigger:** a function has an access-control modifier/check. **Flag:** "Unit test needed — assert an unauthorized caller reverts."
+66. **Trigger:** reviewing a repo with no CI config found. **Flag:** "CI setup needed — add Slither (and ideally Aderyn) as a required check."
+67. **Trigger:** repo has no gas-snapshot mechanism. **Flag:** "CI setup needed — add `forge snapshot` to catch unintended gas regressions."
+68. **Trigger:** repo runs only one static analyzer. **Flag:** "Tooling gap — add a second analyzer (e.g. Aderyn) with a different detector set."
+69. **Trigger:** contract manages significant value (vault, lending, bridge-style logic) with no spec/symbolic test files present. **Flag:** "Consider Halmos or Certora coverage for [invariant] beyond fuzzing."
 
-- Emit **after** state change; past-tense names (`Deposited`, `RoleGranted`)
-- ERC-mandated tense follows the standard (`Transfer` = present)
-- Index key identifiers (max 3 per event)
-- Errors: domain-prefixed, placed in interface/library when context fits
+### Advanced / Situational
 
-### NatSpec ([NatSpec format](https://docs.soliditylang.org/en/latest/natspec-format.html), [SCSFG documentation](https://scsfg.io/developers/documentation/))
-
-Annotate all public/external interfaces. Generate docs in CI with `solidity-docgen`.
-
-```solidity
-/// @notice Deposits tokens and mints shares
-/// @param assets Amount of underlying tokens to deposit
-/// @param receiver Address receiving minted shares
-/// @return shares Amount of shares minted
-/// @dev Rounds down in protocol's favor. Reverts on zero amount.
-function deposit(uint256 assets, address receiver) external returns (uint256 shares);
-```
-
-Document: trust assumptions, rounding, preconditions, side effects.
-
-### Upgradeables ([SCSFG upgradeability](https://scsfg.io/developers/upgradeability/), OZ Upgrades plugin)
-
-- OZ UUPS/Transparent/Beacon only
-- Append-only storage; `__gap` in base contracts
-- `_disableInitializers()` in implementation constructor
-- Initialize in **same tx** as deployment (frontrun protection)
-- Storage-layout diff before every upgrade
-- Dry-run upgrades on fork
-
-### Multi-chain
-
-CREATE2 for deterministic addresses; document and verify salts.
-
----
-
-## Phase 3 — Structural Patterns
-
-From [Solidity Common Patterns](https://docs.soliditylang.org/en/latest/common-patterns.html):
-
-| Pattern | Use |
-|---------|-----|
-| **CEI** | Checks → Effects (state + events) → Interactions (external calls) |
-| **Withdrawal** | Users claim owed funds; contract never pushes in loops |
-| **State machine** | Modifiers (`atStage`, `whenNotPaused`) guard lifecycle transitions |
-| **Fail-safe** | Pause/circuit-breaker for emergency stop ([Solidity recommendations](https://docs.soliditylang.org/en/latest/security-considerations.html)) |
-| **Access restriction** | Role-based modifiers; two-step ownership transfer |
-| **SafeERC20** | All token transfers; balance-delta for fee-on-transfer tokens |
+70. Snapshot voting power for governance instead of live balances. **Detect:** a governance contract reading `balanceOf` directly for vote weight instead of a checkpoint/snapshot.
+71. EIP-7702 changes a long-standing assumption: an address with no code today can delegate to contract code mid-transaction. **Detect:** `extcodesize(addr) == 0` used as a definitive "this is an EOA" security check.
+72. Internal function pointers stored in state can become invalid after an upgrade. **Detect:** a function-type variable declared in upgradeable contract storage.
+73. Negating `type(int256).min` overflows. **Detect:** signed integer negation inside an `unchecked` block.
+74. Precompute and verify CREATE2 addresses before relying on deterministic deployment across chains. **Detect:** `create2`/`CREATE2` usage with an undocumented or dynamically-derived salt.
 
 ---
 
-## Phase 4 — Dependencies ([SCSFG](https://scsfg.io/developers/dependencies/))
+## Phase 4 — Dependencies
 
 | Rule | Practice |
 |------|----------|
@@ -244,18 +232,7 @@ From [Solidity Common Patterns](https://docs.soliditylang.org/en/latest/common-p
 
 ---
 
-## Phase 5 — Testing & Tooling ([SCSFG testing](https://scsfg.io/developers/testing/))
-
-### Test pyramid
-
-| Layer | Tool | Purpose |
-|-------|------|---------|
-| Unit | Foundry/Hardhat | Every function, valid + invalid paths |
-| Integration | Foundry fork | Cross-contract + third-party interactions |
-| E2E / system | Foundry | Full user journeys, success + failure paths |
-| Fuzz | `testFuzz_*` | Input-range edge cases with `bound()` |
-| Invariant | `invariant_*` + handler | Protocol properties across call sequences |
-| Static | Slither + Solhint | CI gates on every PR |
+## Phase 5 — Testing Setup
 
 ### Test structure
 
@@ -263,11 +240,11 @@ From [Solidity Common Patterns](https://docs.soliditylang.org/en/latest/common-p
 test/
 ├── unit/           # one file per contract/module
 ├── integration/    # one file per component relationship
-├── e2e/            # user journey scenarios
+├── invariant/      # handler + invariant_*.t.sol
 └── utils/          # shared fixtures, helpers
 ```
 
-Tests are as readable as production code. Externalize shared setup into fixtures. No duplication between test files.
+Which tests to write for a given piece of code is driven by **The Checklist**'s Trigger/Flag items above — this section is about how to set the test suite up, not what to write.
 
 ### TDD workflow (recommended for core logic)
 
@@ -287,47 +264,25 @@ fail_on_revert = false  # true once handler is tight
 
 - **Handler contract** bounds inputs; target handler not bare protocol
 - **Ghost variables** track cumulative deposits/withdrawals
-- **`bound()`** over `vm.assume()`
 - Multiple actors, not just `address(this)`
-- Start solvency: `assets >= liabilities`
-- Increase `depth` before `runs` for multi-step properties
 - Save failing sequences as permanent regression tests
-
-### Mainnet forking
-
-Fork at pinned block; test against real token/oracle addresses. Reset state between tests. Manipulate state with Foundry cheatcodes for edge scenarios.
-
-### CI gates
-
-`compile → lint → slither → test → coverage threshold`. No merge on warnings. Coverage near 100% on core logic ([OZ GUIDELINES](https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/GUIDELINES.md)).
 
 ---
 
 ## Phase 6 — Code Review Protocol
 
-Every significant change: author + ≥1 reviewer. Treat review like a lightweight audit ([ethereum.org](https://ethereum.org/developers/docs/smart-contracts/security/)).
+Every significant change: author + ≥1 reviewer. Treat review like a lightweight audit.
 
-1. **Context** — architecture and change intent
-2. **Invariants** — each spec invariant has test coverage?
-3. **Diff** — module dependencies, what changed
-4. **Walk-through** — assumptions for every value read/written
-5. **Visibility** — hierarchy, `_` prefix, external-vs-public
-6. **CEI** — verified function by function
-7. **Defensive depth** — validation in internal functions too
-8. **Events** — state change → event
-9. **Docs** — NatSpec matches implementation
-10. **Static analysis** — Slither triaged
+1. **Context** — architecture and change intent (author talks, reviewer listens)
+2. **Diff walk-through** — run **The Checklist** against every changed function
+3. **Invariants** — each spec invariant (Phase 0) has test coverage?
+4. **Static analysis** — Slither/Aderyn diff triaged, even informational
 
-Optional tooling during review:
-- Slither printers for inheritance/function/authorization diagrams
-- `slither-check-upgradeability` before proxy changes
-- `slither-check-erc` for standard conformance
-
-Record in PR audit log (template in [reference.md](reference.md)).
+Record findings in a short PR audit log (template in [reference.md](reference.md)).
 
 ---
 
-## Phase 7 — Staged Deployment ([SCSFG deployment](https://scsfg.io/developers/deployment/))
+## Phase 7 — Staged Deployment
 
 ```
 Private testnet (fork) → Public testnet → Mainnet beta (capped) → Mainnet release
@@ -340,62 +295,24 @@ Private testnet (fork) → Public testnet → Mainnet beta (capped) → Mainnet 
 | Mainnet beta | Cap deposits; bug bounty live; incident plan ready; set sunset block |
 | Mainnet release | Remove caps gradually; monitoring watch window |
 
-| Always | Detail |
-|--------|--------|
-| Compiler | Exact pin; verify on Etherscan/Sourcify |
-| Scripts | Fork-tested; constructor args triple-checked |
-| Keys | Multisig (≥2-of-3) + hardware wallets + timelock |
-| Init | Proxy: initialize in same tx as deploy |
-| Monitoring | Admin events, large movements, invariant deviations |
-| Upgrades | Storage diff + fork dry-run + watch window |
+This phase is organizational — it can't be verified by reading the contract code, only followed as process. Keep it as a human checklist for the launch itself, separate from the code-level checklist above.
 
 ---
 
 ## Phase 8 — AI-Assisted Development
 
-AI output is **untrusted** until compiled, tested, and reviewed ([SolidityBench patterns](https://arxiv.org/abs/2606.19988)).
+AI output is **untrusted** until compiled, tested, and reviewed.
 
 1. Never zero-shot to production
 2. Prompt: interface → control flow (checks → state → events) → invariants → code
 3. RAG against OpenZeppelin; cap at ~2 examples
 4. Compile immediately; verify imports are real
-5. Review first: access modifiers, state relationships, CEI
-6. Audit retrieved snippets
-7. Same review + test gauntlet as human code
-
----
-
-## Pre-Submit Checklist
-
-```
-Design
-- [ ] Invariants documented (Hoare-triple form)
-- [ ] Architecture diagram + privilege map
-- [ ] Upgrade/emergency story decided
-- [ ] Dependencies pinned and reviewed
-
-Code
-- [ ] SPDX + exact pragma
-- [ ] Lowest visibility; _ prefix; concrete types
-- [ ] Custom errors; calldata; CEI; events after state
-- [ ] Validation in internal functions too
-- [ ] Full NatSpec on external/public
-
-Tests
-- [ ] Unit (valid + invalid paths)
-- [ ] Integration (fork with real deps)
-- [ ] Fuzz on math/inputs
-- [ ] Invariant tests for every spec invariant
-- [ ] Slither + Solhint pass in CI
-
-Review
-- [ ] ≥1 reviewer walk-through
-- [ ] Audit log on PR
-```
+5. Run **The Checklist** against the generated code before treating it as done
+6. Same review + test gauntlet as human code
 
 ---
 
 ## Additional Resources
 
-- Extended conventions, invariant templates, resource library: [reference.md](reference.md)
+- Extended conventions, invariant templates, resource library, PR audit-log template: [reference.md](reference.md)
 - Good vs. poor patterns with code: [examples.md](examples.md)

@@ -4,6 +4,10 @@ Extended conventions, checklists, invariant templates, and authoritative resourc
 
 ---
 
+**Core best-practices checklist (74 detection-oriented items) now lives in [SKILL.md § The Checklist](SKILL.md#the-checklist--code-review--generation)** — kept in one place so code-generation and review always see the same, current version.
+
+---
+
 ## Resource Library (by topic)
 
 ### Official Solidity
