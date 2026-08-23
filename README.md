@@ -6,7 +6,6 @@ Built from Solidity docs, OpenZeppelin, SCSFG, Trail of Bits, Secureum, Solcurit
 
 **Related write-up:**  
 [AI-Assisted Solidity Development: Bringing Audit Knowledge into the Dev Loop](https://medium.com/@giladha/ai-assisted-solidity-development-bringing-audit-knowledge-into-the-dev-loop-a2089eae0212)
----
 
 ## What's in the repo
 
